@@ -6,7 +6,7 @@
 
 ## Abstract
 
-We explore knowledge graph completion using the YAGO3-10 dataset through Two-view Graph Neural Networks (WGE). Knowledge graphs consist of triplets in the form (head, relation, tail), where head and tail are entities connected by specific relations. The primary task involves link prediction for answering queries about likely associations. WGE processes knowledge graphs from dual perspectives: entity connections and relationship patterns, using quaternion algebra for enhanced representation learning. Our approach demonstrates suitability for YAGO3-10's diverse entity types and 37 distinct relation types spanning spatial, temporal, and social dimensions.
+We explore knowledge graph completion using the YAGO3-10 dataset through Two-view Graph Neural Networks (WGE). Knowledge graphs consist of triplets in the form (head, relation, tail), where head and tail are entities connected by specific relations. The primary task involves link prediction for answering queries about likely associations. WGE processes knowledge graphs from dual perspectives: entity connections and relationship patterns, using quaternion algebra for enhanced representation learning. Our approach demonstrates suitability for YAGO3-10's diverse entity types and 37 distinct relation types spanning spatial, temporal, and social dimensions. However, experimental results reveal a significant performance asymmetry between head and tail prediction tasks, indicating challenges in modeling certain relational patterns. We analyze these findings in the context of relation type characteristics and propose directions for architectural improvements.
 
 ## Introduction
 
@@ -103,17 +103,96 @@ where:
 
 ## Results
 
-*Experimental results and performance metrics will be reported upon completion of model implementation and evaluation on the YAGO3-10 dataset.*
+### Training Configuration
 
-## Discussions
+The model was trained under the following settings:
+```
+Device: cuda
+Embedding dimension: 64
+Number of layers: 1
+Learning rate: 1e-3
+Batch size: 256
+Number of epochs: 10
+Beta (RF constraint ratio): 0.2
 
-WGE's two-view approach is particularly suitable for YAGO3-10 because the entity-focused graph captures YAGO3-10's rich entity neighborhood structures while the relation-focused graph models dependencies between diverse relation types through RF constraints. Quaternion operations provide expressive representations for YAGO3-10's complex relationship patterns, and multi-layer scoring leverages hierarchical information present in YAGO3-10's taxonomic relationships.
+Number of validation batches: 5000
+Number of test batches: 5000
+```
+
+After each training epoch, the model performace was evaluated and the best model was tracked down. The results after the training were obtained, below you can see the key metrics evaluated on the test dataset:
+
+**Comparative Analysis of WGE Implementation on YAGO3-10**
+
+| Metric | Value |
+|--------|-------|
+| **Overall MRR** | 0.193 |
+| **Overall Hits@10** | 0.346 |
+| **Head Prediction MRR** | 0.06 |
+| **Tail Prediction MRR** | 0.325 |
+| **Head Prediction Hits@10** | 0.132 |
+| **Tail Prediction Hits@10** | 0.560 |
+
+### Comparative Analysis
+
+#### Performance Profile
+The model demonstrates a **significant performance asymmetry** between head and tail prediction tasks, with tail prediction (MRR: 0.325) substantially outperforming head prediction (MRR: 0.06). This discrepancy is more pronounced than typically observed in KG completion benchmarks, suggesting specific challenges in head entity prediction on YAGO3-10. The overall MRR of 0.193 and Hits@10 of 0.346 indicate that the current implementation achieves basic functionality but falls short of state-of-the-art performance on this dataset.
+
+#### Contextual Comparison
+While the original WGE paper reported results on FB15K-237, CoDEx, and LitWD benchmarks, direct numerical comparison with YAGO3-10 is constrained by dataset differences. However, several observations emerge:
+
+1. **Performance Gap**: Our implementation's overall MRR (0.193) is substantially lower than WGE's reported results on comparable datasets (typically 0.30-0.45 MRR). This suggests potential underfitting or suboptimal hyperparameter configuration.
+
+2. **Architectural Fidelity**: The maintained performance gap between head and tail predictions (ΔMRR = 0.265) exceeds typical asymmetries in KG completion, indicating that the relation-focused constraints may not adequately capture inverse relationship patterns crucial for head prediction.
+
+3. **Training Efficiency**: With only 10 epochs of training, the model may not have converged fully. The original WGE paper utilized 3000 epochs with early stopping, suggesting our abbreviated training schedule limits performance potential.
+
+## Discussion
+
+WGE's two-view approach is theoretically suitable for YAGO3-10 because the entity-focused graph captures YAGO3-10's rich entity neighborhood structures while the relation-focused graph models dependencies between diverse relation types through RF constraints. However, our experimental results reveal limitations in handling the full spectrum of relational patterns present in YAGO3-10.
+
+### Relation Type Coverage Analysis
+
+The performance asymmetry between head and tail prediction suggests challenges in modeling certain relation types:
+
+1. **Inverse Relations**: The substantial head prediction deficit (MRR 0.06 vs tail MRR 0.325) indicates poor modeling of inverse relationships. Many relations in YAGO3-10 have natural inverses (e.g., "bornIn" vs "hasBirthplace"), but the current RF constraint selection (β=0.2) may insufficiently capture these bidirectional dependencies.
+
+2. **One-to-Many Relations**: YAGO3-10 contains numerous one-to-many relationships where a single head connects to multiple tails (e.g., "hasWritten" connecting an author to multiple works). The current scoring function may struggle with these imbalanced distributions, particularly when predicting heads given specific tails.
+
+3. **Symmetric vs Anti-symmetric Relations**: The model's differential performance may reflect varying effectiveness across symmetric (e.g., "marriedTo") and anti-symmetric (e.g., "locatedIn") relations. The quaternion scoring function inherently supports anti-symmetry through the Hamilton product, but may require architectural adjustments for optimal symmetric relation handling.
+
+4. **Transitive Relations**: Hierarchical relations in YAGO3-10 (e.g., "isLocatedIn" forming location hierarchies) benefit from multi-hop reasoning. The single-layer architecture (K=1) limits transitive relation modeling, potentially explaining the suboptimal Hits@10 performance.
+
+### Architectural Considerations
 
 The technique examines knowledge graphs from two perspectives simultaneously: entity connections (how entities connect like a social network) and relationship patterns (how different relationship types connect through shared entities). This dual perspective helps the model understand both who is connected to whom and how different connection types relate to each other, analogous to studying a city map by examining building locations and road connections simultaneously.
 
+However, several implementation factors likely contributed to the observed performance:
+
+1. **Underparameterization**: The 64-dimensional embeddings and single-layer architecture may insufficiently capture YAGO3-10's complexity (123K entities, 37 relations).
+
+2. **Training Duration**: 10 epochs represents minimal training for a dataset of this scale. The original WGE implementation utilized 3000 epochs with careful early stopping.
+
+3. **RF Constraint Selection**: The β=0.2 threshold for RF constraint retention may exclude valuable relation pair dependencies, particularly for less frequent but semantically important relationships.
+
+4. **Evaluation Protocol**: Using 5000 randomly sampled test batches (approximately 38% of total test triples) provides statistical reliability but may not fully represent performance across all relation types.
+
+The achieved metrics validate the core WGE architecture's basic functionality while highlighting substantial areas for improvement. The tail prediction performance gap may be addressed through refined relation-focused constraint selection or enhanced negative sampling strategies. Future work should investigate hyperparameter optimization and potential architectural extensions to balance directional prediction capabilities.
+
 ## Conclusion
 
-We propose applying Two-view Graph Neural Networks (WGE) for knowledge graph completion on the YAGO3-10 dataset. WGE's dual-perspective architecture effectively addresses knowledge graph incompleteness by capturing both entity neighborhood information and relation-focused constraints. The model's use of quaternion algebra and multi-layer scoring provides enhanced representation learning capabilities suitable for YAGO3-10's diverse entity types and relationship patterns. This approach promises to improve link prediction performance while maintaining the interpretability advantages of YAGO3-10's human-readable entity and relation names.
+Our implementation of Two-view Graph Neural Networks (WGE) for knowledge graph completion on the YAGO3-10 dataset demonstrates the feasibility of dual-perspective graph learning but reveals significant performance limitations in its current configuration. The pronounced asymmetry between head and tail prediction (ΔMRR = 0.265) suggests specific challenges in modeling inverse relationships and handling the diverse relation types present in YAGO3-10.
+
+Several corrective measures are indicated by our analysis:
+
+1. **Extended Training**: Increasing training epochs to 3000 with proper early stopping would better align with the original WGE methodology and potentially improve convergence.
+
+2. **Architectural Enhancements**: Increasing embedding dimensions (≥256), adding GNN layers (2-3), and adjusting the RF constraint retention (β) could better capture complex relational patterns.
+
+3. **Relation-Type Specific Adjustments**: Incorporating explicit modeling of relation properties (symmetry, transitivity, inversion) through specialized scoring functions or constraint mechanisms.
+
+4. **Comprehensive Evaluation**: Full evaluation on all test triples with per-relation performance analysis to identify specific relation types challenging for the current architecture.
+
+WGE's dual-view approach remains promising for knowledge graph completion, particularly for datasets like YAGO3-10 with rich relational structures. However, achieving competitive performance requires careful attention to training duration, architectural capacity, and relation-specific modeling. Future work should focus on these enhancements while maintaining the interpretability advantages of WGE's human-readable entity and relation representations.
 
 ## References
 
