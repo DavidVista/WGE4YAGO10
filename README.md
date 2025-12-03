@@ -8,6 +8,8 @@
 
 We explore knowledge graph completion using the YAGO3-10 dataset through Two-view Graph Neural Networks (WGE). Knowledge graphs consist of triplets in the form (head, relation, tail), where head and tail are entities connected by specific relations. The primary task involves link prediction for answering queries about likely associations. WGE processes knowledge graphs from dual perspectives: entity connections and relationship patterns, using quaternion algebra for enhanced representation learning. Our approach demonstrates suitability for YAGO3-10's diverse entity types and 37 distinct relation types spanning spatial, temporal, and social dimensions. However, experimental results reveal a significant performance asymmetry between head and tail prediction tasks, indicating challenges in modeling certain relational patterns. We analyze these findings in the context of relation type characteristics and propose directions for architectural improvements.
 
+You can follow the implemented approach in the following Google Colab <a href='https://colab.research.google.com/drive/13FIdU2fPdxzN2Jw51Bhvqnvxwm3Qx-8-?usp=sharing'>tutorial</a>.
+
 ## Introduction
 
 Knowledge graph completion addresses the problem of predicting missing links in knowledge bases structured as triplets (head, relation, tail). Users typically seek answers to queries regarding terms highly likely to be associated with given head/tail entities and relations. This constitutes a link-level prediction problem on knowledge graphs where traditional models often miss potentially useful relation structure information, limiting their ability to handle correctly interpreted input queries.
